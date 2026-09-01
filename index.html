@@ -228,6 +228,10 @@
   <div id="reg_table_wrap" style="max-height:320px;overflow-y:auto;border:1px solid #e5e3da;border-radius:8px;">
     <table class="pcg-reg" id="reg_table"><thead><tr><th>정식코드</th><th>약식코드</th><th>품목명</th><th>약식품목명</th><th></th></tr></thead><tbody id="reg_body"></tbody></table>
   </div>
+  <div style="margin-top:10px;">
+    <button class="pcg-btn ghost sm" id="btn_export_registry">등록된 품목 엑셀로 다운로드 (품목코드등록.xlsx 양식)</button>
+    <span class="pcg-err" id="reg_export_status"></span>
+  </div>
 </div>
 
 <script>
@@ -278,6 +282,28 @@ function freshRT(){
   BASE_GROUPS.forEach(g=>{ if(!rt.majorsByGroup[g]){ rt.majorsByGroup[g] = []; rt.dataByGroup[g] = {}; } });
   return rt;
 }
+const store = {
+  hasNative: (typeof window !== "undefined" && window.storage && typeof window.storage.get === "function"),
+  async get(key){
+    if(this.hasNative){
+      try{ return await window.storage.get(key); }
+      catch(e){ return null; }
+    }
+    try{
+      const v = localStorage.getItem("pcg_"+key);
+      return v===null ? null : {key, value:v};
+    }catch(e){ return null; }
+  },
+  async set(key, value){
+    if(this.hasNative){
+      try{ return await window.storage.set(key, value); }
+      catch(e){ /* fall through to localStorage as backup */ }
+    }
+    try{ localStorage.setItem("pcg_"+key, value); return {key, value}; }
+    catch(e){ return null; }
+  }
+};
+
 let RT = freshRT();
 function buildExistingMap(list){
   return new Map(list.filter(x=>x && x[0]).map(([code,name])=>[String(code).trim().toUpperCase(), name||""]));
@@ -383,7 +409,7 @@ async function loadRemoteData(url, silent){
     REMOTE_SEED = seed;
     if(seed.brands && seed.brands.length>0) BRANDS = seed.brands;
     if(seed.existingCodes && seed.existingCodes.length>0) EXISTING_CODE_MAP = buildExistingMap(seed.existingCodes);
-    await window.storage.set("remoteDataUrl", url);
+    await store.set("remoteDataUrl", url);
     rebuildRuntimeFromConfig();
     if(statusEl) statusEl.textContent = "불러오기 성공 (분야 "+seed.groups.length+"개, 기존코드 "+(seed.existingCodes?seed.existingCodes.length:0)+"건) · 다음에 열 때도 이 주소를 자동으로 사용합니다";
     renderAll();
@@ -418,13 +444,13 @@ function rebuildRuntimeFromConfig(){
 
 async function loadCustomConfig(){
   try{
-    const res = await window.storage.get("customCategoryConfig");
+    const res = await store.get("customCategoryConfig");
     if(res){ customConfig = JSON.parse(res.value); }
   }catch(e){}
   rebuildRuntimeFromConfig();
 }
 async function saveCustomConfig(){
-  await window.storage.set("customCategoryConfig", JSON.stringify(customConfig));
+  await store.set("customCategoryConfig", JSON.stringify(customConfig));
 }
 
 function renderChips(container, items, selectedKey, onClick){
@@ -641,13 +667,13 @@ function autoName(){
 
 async function loadRegistry(){
   try{
-    const res = await window.storage.get("registry");
+    const res = await store.get("registry");
     registry = res ? JSON.parse(res.value) : [];
   }catch(e){ registry = []; }
   renderRegistry();
 }
 async function saveRegistry(){
-  await window.storage.set("registry", JSON.stringify(registry));
+  await store.set("registry", JSON.stringify(registry));
 }
 
 function nextAbbrForBase(brandAbbr, baseKey){
@@ -754,7 +780,7 @@ function renderAll(){
   const abbrDup = ab.code ? checkDuplicateCode(ab.code) : null;
   document.getElementById("abbr_dup_warn").textContent = abbrDup ? ("⚠ 이미 등록된 코드입니다" + (abbrDup!==true ? " · "+abbrDup : "")) : "";
 
-  document.getElementById("btn_save").disabled = !(fc && ab.code) || !!formalDup || !!abbrDup;
+  // 버튼을 disabled로 막지 않음 - 클릭 시 항상 구체적인 안내 메시지를 보여줌 (아래 btn_save 클릭 핸들러 참고)
 }
 
 function checkDuplicateCode(code){
@@ -926,6 +952,39 @@ function exportCategoriesToExcel(){
 }
 document.getElementById("mg_export").addEventListener("click", exportCategoriesToExcel);
 
+function exportRegistryToExcel(){
+  const statusEl = document.getElementById("reg_export_status");
+  if(typeof XLSX === "undefined"){
+    statusEl.textContent = "엑셀 라이브러리를 불러오지 못했어요. 인터넷 연결을 확인하고 다시 시도해주세요.";
+    return;
+  }
+  if(registry.length===0){
+    statusEl.textContent = "등록된 품목이 없어요. 먼저 품목을 등록해주세요.";
+    return;
+  }
+  statusEl.textContent = "";
+  const headers = ["품목코드","품목명","품목구분","세트여부","재고수량관리","규격구분","규격","단위",
+    "당수량(분자)","당수량(분모)","바코드","입고단가","입고단가 VAT포함여부","출고단가","출고단가 VAT포함여부",
+    "검색창내용","품목그룹1","품목그룹2","품목그룹3","안전재고수량","적정재고수량","적요","구매처",
+    "품목명(약식)","택배구분","칼라박스 사이즈","카톤박스 사이즈","RMB","RMB VAT포함여부","USD","USD VAT포함여부",
+    "중국명칭","PRICE($or￥)","INVP","품목코드(약식)","관세","CBM",
+    "C-Portal최소주문수량체크","C-Portal최소주문수량","C-Portal최소주문단위"];
+  const rows = [headers];
+  registry.forEach(r=>{
+    const row = new Array(headers.length).fill(null);
+    row[0] = r.formal;
+    row[1] = r.name;
+    row[23] = r.abbrName || "";
+    row[33] = r.abbr;
+    rows.push(row);
+  });
+  const ws = XLSX.utils.aoa_to_sheet(rows);
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, "1_품목 등록");
+  XLSX.writeFile(wb, "품목코드등록_"+new Date().toISOString().slice(0,10)+".xlsx");
+}
+document.getElementById("btn_export_registry").addEventListener("click", exportRegistryToExcel);
+
 function exportCategoriesToJson(){
   const payload = {groups: RT.groups, majorsByGroup: RT.majorsByGroup, dataByGroup: RT.dataByGroup, brands: BRANDS};
   const blob = new Blob([JSON.stringify(payload, null, 2)], {type:"application/json"});
@@ -944,6 +1003,13 @@ document.getElementById("btn_save").addEventListener("click", async ()=>{
   const abbrName = document.getElementById("f_abbrname").value.trim();
   const errEl = document.getElementById("save_err");
   errEl.textContent = "";
+  if(!currentBrand()){ errEl.textContent = "브랜드를 선택해주세요"; return; }
+  const cl = categoryLabels();
+  if(!cl.majorCode){ errEl.textContent = "카테고리(대분류)를 선택해주세요"; return; }
+  if(cl.hasSub1needed && !cl.sub1Code){ errEl.textContent = "재질/사양을 선택해주세요"; return; }
+  if(cl.hasSub2needed && !cl.sub2Code){ errEl.textContent = "품목종류를 선택해주세요"; return; }
+  if(!sizeCode()){ errEl.textContent = "규격(사이즈/용량)을 입력해주세요"; return; }
+  if(!document.getElementById("f_basekey").value.trim()){ errEl.textContent = "약식코드용 베이스명을 입력해주세요 (정식코드 카드 아래 칸)"; return; }
   if(!fc || !ab.code){ errEl.textContent = "정식코드/약식코드를 먼저 완성해주세요"; return; }
   if(!name){ errEl.textContent = "품목명을 입력해주세요"; return; }
   if(registry.some(r=>r.formal===fc)){ errEl.textContent = "이미 등록된 정식코드입니다"; return; }
@@ -962,6 +1028,9 @@ document.getElementById("btn_save").addEventListener("click", async ()=>{
   await saveRegistry();
   renderRegistry();
   renderAll();
+  errEl.className = "pcg-ok";
+  errEl.textContent = "등록되었습니다: " + fc + " / " + ab.code;
+  setTimeout(()=>{ errEl.className = "pcg-err"; errEl.textContent = ""; }, 4000);
 });
 
 document.getElementById("btn_reset").addEventListener("click", ()=>{
@@ -986,7 +1055,7 @@ document.getElementById("remote_load").addEventListener("click", ()=>{
 async function initApp(){
   await loadCustomConfig();
   try{
-    const saved = await window.storage.get("remoteDataUrl");
+    const saved = await store.get("remoteDataUrl");
     if(saved && saved.value){
       document.getElementById("remote_url").value = saved.value;
       await loadRemoteData(saved.value, true);
