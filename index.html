@@ -25,6 +25,18 @@
   .pcg-err{font-size:12px;color:#a32d2d;margin-top:4px;}
   .pcg-ok{font-size:12px;color:#0f6e56;margin-top:4px;}
   .pcg-copy{cursor:pointer;color:#5f5e5a;font-size:11px;border:1px solid #d3d1c7;border-radius:4px;padding:2px 7px;margin-left:8px;}
+  .pcg-rowbtn{cursor:pointer;color:#5f5e5a;font-size:11px;border:1px solid #d3d1c7;border-radius:4px;padding:2px 7px;margin-left:6px;white-space:nowrap;display:inline-block;background:#fff;}
+  .pcg-rowbtn:hover{background:#f3f1ea;}
+  .pcg-rowbtn.primary{background:#2c2c2a;border-color:#2c2c2a;color:#fff;}
+  .pcg-rowbtn.primary:hover{opacity:.88;background:#2c2c2a;}
+  .pcg-reg-in{width:100%;box-sizing:border-box;padding:4px 6px;border:1px solid #b9b7ac;border-radius:4px;font-size:12.5px;background:#fff;}
+  .pcg-reg-in.mono{font-family:monospace;text-transform:uppercase;}
+  table.pcg-reg tr.editing td{background:#fbfaf5;}
+  .pcg-rowerr{color:#b3261e;font-size:11px;padding:2px 8px 6px;}
+  table.pcg-reg tr.clickable{cursor:pointer;}
+  table.pcg-reg tr.clickable:hover td{background:#f6f4ed;}
+  table.pcg-reg tr.loaded td{background:#eef3ec;}
+  .pcg-loaded{display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;margin:0 0 16px;padding:10px 14px;border:1px solid #c6cfc2;background:#f2f6f0;border-radius:8px;font-size:13px;}
   .pcg-cols{display:flex;border:1px solid #d3d1c7;border-radius:8px;overflow:hidden;}
   .pcg-col{flex:1;min-width:0;max-height:220px;overflow-y:auto;border-right:1px solid #e5e3da;}
   .pcg-col:last-child{border-right:none;}
@@ -44,6 +56,14 @@
 <div style="border-bottom:2px solid #2c2c2a;padding-bottom:10px;margin-bottom:22px;">
   <div style="font-size:19px;font-weight:600;">품목코드 생성기</div>
   <div style="font-size:12.5px;color:#5f5e5a;margin-top:3px;">카테고리와 사양을 선택하면 품목명·정식코드·약식코드가 자동으로 만들어져요.</div>
+</div>
+
+<div class="pcg-loaded" id="loaded_banner" style="display:none;">
+  <div>
+    <div id="loaded_title" style="font-weight:600;"></div>
+    <div id="loaded_sub" style="font-size:12px;color:#5f5e5a;margin-top:3px;"></div>
+  </div>
+  <button class="pcg-btn ghost sm" id="btn_loaded_clear">새 품목 입력으로</button>
 </div>
 
 <div class="pcg-sec">
@@ -767,15 +787,28 @@ function renderAll(){
   }
 
   const fc = formalCode();
-  document.getElementById("out_formal").textContent = fc || "필요한 항목을 모두 선택하세요";
   const ab = abbrCode();
-  document.getElementById("out_abbr").textContent = ab.code || "브랜드/베이스명을 입력하세요";
-  document.getElementById("abbr_note").textContent = ab.note;
+  const loadedRec = loadedRegId ? registry.find(x=>x.id===loadedRegId) : null;
 
-  const formalDup = fc ? checkDuplicateCode(fc) : null;
-  document.getElementById("formal_dup_warn").textContent = formalDup ? ("⚠ 이미 등록된 코드입니다" + (formalDup!==true ? " · "+formalDup : "")) : "";
-  const abbrDup = ab.code ? checkDuplicateCode(ab.code) : null;
-  document.getElementById("abbr_dup_warn").textContent = abbrDup ? ("⚠ 이미 등록된 코드입니다" + (abbrDup!==true ? " · "+abbrDup : "")) : "";
+  if(loadedRec && loadedUnchanged()){
+    // 불러온 품목을 그대로 보고 있는 중 - 새로 계산한 코드 대신 등록된 코드를 보여준다
+    document.getElementById("out_formal").textContent = loadedRec.formal;
+    document.getElementById("out_abbr").textContent = loadedRec.abbr;
+    document.getElementById("abbr_note").textContent = "등록된 품목의 코드입니다.";
+    document.getElementById("formal_dup_warn").textContent = "";
+    document.getElementById("abbr_dup_warn").textContent = "";
+  }else{
+    document.getElementById("out_formal").textContent = fc || "필요한 항목을 모두 선택하세요";
+    document.getElementById("out_abbr").textContent = ab.code || "브랜드/베이스명을 입력하세요";
+    document.getElementById("abbr_note").textContent = ab.note;
+
+    const formalDup = fc ? checkDuplicateCode(fc) : null;
+    document.getElementById("formal_dup_warn").textContent = formalDup ? ("⚠ 이미 등록된 코드입니다" + (formalDup!==true ? " · "+formalDup : "")) : "";
+    const abbrDup = ab.code ? checkDuplicateCode(ab.code) : null;
+    document.getElementById("abbr_dup_warn").textContent = abbrDup ? ("⚠ 이미 등록된 코드입니다" + (abbrDup!==true ? " · "+abbrDup : "")) : "";
+  }
+
+  renderLoadedBanner();
 
   // 버튼을 disabled로 막지 않음 - 클릭 시 항상 구체적인 안내 메시지를 보여줌 (아래 btn_save 클릭 핸들러 참고)
 }
@@ -788,24 +821,249 @@ function checkDuplicateCode(code){
   return null;
 }
 
+let editingRegId = null;
+
+function escHtml(s){
+  return String(s==null?"":s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;").replace(/'/g,"&#39;");
+}
+
+// 약식코드(예: DY-001A)에서 브랜드약어 / 순번 / 사이즈알파벳을 다시 뽑아낸다.
+function reparseAbbr(code){
+  const m = String(code||"").trim().toUpperCase().match(/^([A-Z]{2})-(\d{1,4})([A-Z]?)$/);
+  if(!m) return null;
+  return { brandAbbr:m[1], seq:parseInt(m[2],10), sizeLetter:m[3]||"A" };
+}
+// 정식코드(예: DYGED02-013)에서 브랜드약어 / 스타일문자를 다시 뽑아낸다.
+function reparseFormal(code){
+  const m = String(code||"").trim().toUpperCase().match(/^([A-Z]{2})([A-Z0-9])([A-Z0-9])([A-Z0-9])([A-Z0-9]{2})-(.+)$/);
+  if(!m) return null;
+  return { brandAbbr:m[1], styleLetter:m[4] };
+}
+
+// ===== 등록된 품목 클릭 → 입력 내용 불러오기 =====
+let loadedRegId = null, loadedSnapshot = null;
+
+function iv(id){ const el = document.getElementById(id); return el ? el.value : ""; }
+
+// 지금 화면의 입력값들을 한 덩어리로 저장 (등록 시 같이 기록해두고, 나중에 그대로 복원)
+function snapshotForm(){
+  return {
+    brand: state.brand,
+    customBrand: {name: state.customBrand.name, code2: state.customBrand.code2},
+    group: state.group, major: state.major, sub1: state.sub1, sub2: state.sub2,
+    customCat: JSON.parse(JSON.stringify(state.customCat)),
+    color: iv("f_color"), styleOverride: iv("f_style_override"),
+    sizeval: iv("f_sizeval"), sizeunit: iv("f_sizeunit"), sizeoverride: iv("f_sizeoverride"),
+    basekey: iv("f_basekey")
+  };
+}
+
+// 예전에 등록돼서 입력값 기록이 없는 품목은 코드에서 거꾸로 추정
+function inferFormFromRecord(r){
+  const f = {brand:null, customBrand:{name:"",code2:""}, group:state.group,
+    major:null, sub1:null, sub2:null,
+    customCat:{majorName:"",majorCode:"",sub1Name:"",sub1Code:"",sub2Name:"",sub2Code:""},
+    color:"", styleOverride:"", sizeval:"", sizeunit:"cm", sizeoverride:"", basekey:r.baseKey||""};
+  const b = BRANDS.find(x=>x.code2===r.brandAbbr);
+  if(b) f.brand = b.name;
+  else if(r.brandAbbr){ f.brand = "__custom__"; f.customBrand = {name:r.brandAbbr, code2:r.brandAbbr}; }
+  const pf = String(r.formal||"").toUpperCase().match(/^([A-Z]{2})([A-Z0-9])([A-Z0-9])([A-Z0-9])([A-Z0-9]{2})-(.{1,3})$/);
+  if(pf){
+    const majorCode = pf[2], sub1Code = pf[3], styleL = pf[4], sub2Code = pf[5], size = pf[6];
+    let found = null;
+    RT.groups.forEach(g=>{
+      if(found) return;
+      if(!(RT.majorsByGroup[g]||[]).some(x=>x[1]===majorCode)) return;
+      const info = (RT.dataByGroup[g]||{})[majorCode];
+      if(info && (info.sub1||[]).some(s=>s[1]===sub1Code) && (info.sub2||[]).some(s=>s[1]===sub2Code)) found = g;
+    });
+    if(!found){
+      RT.groups.forEach(g=>{ if(!found && (RT.majorsByGroup[g]||[]).some(x=>x[1]===majorCode)) found = g; });
+    }
+    if(found){ f.group = found; f.major = majorCode; f.sub1 = sub1Code; f.sub2 = sub2Code; }
+    f.styleOverride = r.styleLetter || styleL;
+    f.sizeoverride = size;
+  }else if(r.styleLetter){
+    f.styleOverride = r.styleLetter;
+  }
+  return f;
+}
+
+function applyForm(f){
+  state.brand = f.brand;
+  state.customBrand = {name: (f.customBrand&&f.customBrand.name)||"", code2: (f.customBrand&&f.customBrand.code2)||""};
+  state.group = f.group || state.group;
+  state.major = f.major; state.sub1 = f.sub1; state.sub2 = f.sub2;
+  if(f.customCat) state.customCat = JSON.parse(JSON.stringify(f.customCat));
+  document.getElementById("f_brand_name").value = state.customBrand.name;
+  document.getElementById("f_brand_code").value = state.customBrand.code2;
+  document.getElementById("cc_major_name").value = state.customCat.majorName || "";
+  document.getElementById("cc_major_code").value = state.customCat.majorCode || "";
+  document.getElementById("cc_sub1_name").value = state.customCat.sub1Name || "";
+  document.getElementById("cc_sub1_code").value = state.customCat.sub1Code || "";
+  document.getElementById("cc_sub2_name").value = state.customCat.sub2Name || "";
+  document.getElementById("cc_sub2_code").value = state.customCat.sub2Code || "";
+  document.getElementById("f_color").value = f.color || "";
+  document.getElementById("f_style_override").value = f.styleOverride || "";
+  document.getElementById("f_sizeval").value = f.sizeval || "";
+  document.getElementById("f_sizeunit").value = f.sizeunit || "cm";
+  document.getElementById("f_sizeoverride").value = f.sizeoverride || "";
+  document.getElementById("f_basekey").value = f.basekey || "";
+}
+
+function loadRegistryItem(id){
+  const r = registry.find(x=>x.id===id);
+  if(!r) return;
+  applyForm(r.form || inferFormFromRecord(r));
+  nameLocked = true; abbrNameLocked = true;
+  document.getElementById("f_name").value = r.name || "";
+  document.getElementById("f_abbrname").value = r.abbrName || "";
+  loadedRegId = r.id;
+  loadedSnapshot = JSON.stringify(snapshotForm());
+  document.getElementById("save_err").className = "pcg-err";
+  document.getElementById("save_err").textContent = "";
+  renderAll();
+  renderRegistry();
+  window.scrollTo({top:0, behavior:"smooth"});
+}
+
+function loadedUnchanged(){
+  if(!loadedRegId) return false;
+  if(!registry.some(r=>r.id===loadedRegId)) return false;
+  return JSON.stringify(snapshotForm()) === loadedSnapshot;
+}
+
+function clearLoaded(){
+  loadedRegId = null; loadedSnapshot = null;
+  renderAll(); renderRegistry();
+}
+
+function renderLoadedBanner(){
+  const wrap = document.getElementById("loaded_banner");
+  const r = loadedRegId ? registry.find(x=>x.id===loadedRegId) : null;
+  if(!r){ wrap.style.display = "none"; return; }
+  wrap.style.display = "flex";
+  document.getElementById("loaded_title").textContent = "불러온 품목 · " + r.formal + " / " + r.abbr;
+  document.getElementById("loaded_sub").textContent = loadedUnchanged()
+    ? (r.name + " — 등록 당시 입력값을 보고 있어요. 값을 바꾸면 새 코드가 계산됩니다.")
+    : (r.name + " — 입력값을 바꿨습니다. 아래 코드는 새로 계산된 값이에요 (등록된 품목은 그대로입니다).");
+}
+
 function renderRegistry(){
   const q = document.getElementById("reg_search").value.trim().toLowerCase();
   const body = document.getElementById("reg_body");
   body.innerHTML = "";
-  const filtered = registry.filter(r => !q || r.name.toLowerCase().includes(q) || r.formal.toLowerCase().includes(q) || r.abbr.toLowerCase().includes(q));
+  const filtered = registry.filter(r => !q || r.name.toLowerCase().includes(q) || r.formal.toLowerCase().includes(q) || r.abbr.toLowerCase().includes(q) || (r.abbrName||"").toLowerCase().includes(q));
   filtered.slice().reverse().forEach(r=>{
     const tr = document.createElement("tr");
-    tr.innerHTML = "<td style='font-family:monospace;'>"+r.formal+"</td><td style='font-family:monospace;'>"+r.abbr+"</td><td>"+r.name+"</td><td>"+(r.abbrName||"")+"</td><td><span class='pcg-copy' data-id='"+r.id+"'>삭제</span></td>";
-    body.appendChild(tr);
+    const id = escHtml(r.id);
+    if(editingRegId === r.id){
+      tr.className = "editing";
+      tr.innerHTML =
+        "<td><input class='pcg-reg-in mono' data-f='formal' value='"+escHtml(r.formal)+"'></td>"+
+        "<td><input class='pcg-reg-in mono' data-f='abbr' value='"+escHtml(r.abbr)+"'></td>"+
+        "<td><input class='pcg-reg-in' data-f='name' value='"+escHtml(r.name)+"'></td>"+
+        "<td><input class='pcg-reg-in' data-f='abbrName' value='"+escHtml(r.abbrName||"")+"'></td>"+
+        "<td style='white-space:nowrap;'><span class='pcg-rowbtn primary' data-act='save' data-id='"+id+"'>저장</span><span class='pcg-rowbtn' data-act='cancel' data-id='"+id+"'>취소</span></td>";
+      body.appendChild(tr);
+      const errTr = document.createElement("tr");
+      errTr.innerHTML = "<td colspan='5' style='padding:0;border-bottom:1px solid #eeece5;'><div class='pcg-rowerr' id='reg_row_err'></div></td>";
+      body.appendChild(errTr);
+    }else{
+      tr.className = "clickable" + (loadedRegId===r.id ? " loaded" : "");
+      tr.title = "클릭하면 이 품목의 입력 내용을 위에 불러옵니다";
+      tr.addEventListener("click", (e)=>{
+        if(e.target.closest(".pcg-rowbtn")) return;
+        loadRegistryItem(r.id);
+      });
+      tr.innerHTML =
+        "<td style='font-family:monospace;'>"+escHtml(r.formal)+"</td>"+
+        "<td style='font-family:monospace;'>"+escHtml(r.abbr)+"</td>"+
+        "<td>"+escHtml(r.name)+"</td>"+
+        "<td>"+escHtml(r.abbrName||"")+"</td>"+
+        "<td style='white-space:nowrap;'><span class='pcg-rowbtn' data-act='edit' data-id='"+id+"'>수정</span><span class='pcg-rowbtn' data-act='del' data-id='"+id+"'>삭제</span></td>";
+      body.appendChild(tr);
+    }
   });
   document.getElementById("reg_count").textContent = registry.length;
-  body.querySelectorAll(".pcg-copy").forEach(el=>{
+
+  body.querySelectorAll(".pcg-rowbtn").forEach(el=>{
+    const act = el.getAttribute("data-act");
+    const rid = el.getAttribute("data-id");
     el.onclick = async ()=>{
-      registry = registry.filter(r=>r.id !== el.getAttribute("data-id"));
-      await saveRegistry();
-      renderRegistry();
+      if(act === "edit"){
+        editingRegId = rid;
+        renderRegistry();
+        const first = document.querySelector("#reg_body tr.editing input[data-f='formal']");
+        if(first) first.focus();
+      }else if(act === "cancel"){
+        editingRegId = null;
+        renderRegistry();
+      }else if(act === "del"){
+        const target = registry.find(r=>r.id===rid);
+        if(!target) return;
+        if(!confirm("삭제할까요?\n\n"+target.formal+" / "+target.abbr+"\n"+target.name)) return;
+        registry = registry.filter(r=>r.id !== rid);
+        if(editingRegId === rid) editingRegId = null;
+        if(loadedRegId === rid){ loadedRegId = null; loadedSnapshot = null; }
+        await saveRegistry();
+        renderRegistry();
+        renderAll();
+      }else if(act === "save"){
+        await saveRegRowEdit(rid);
+      }
     };
   });
+
+  // 수정 중인 행에서 Enter=저장, Esc=취소
+  body.querySelectorAll("tr.editing input").forEach(inp=>{
+    inp.addEventListener("keydown", async (e)=>{
+      if(e.key === "Enter"){ e.preventDefault(); await saveRegRowEdit(editingRegId); }
+      else if(e.key === "Escape"){ e.preventDefault(); editingRegId = null; renderRegistry(); }
+    });
+  });
+}
+
+async function saveRegRowEdit(rid){
+  const row = document.querySelector("#reg_body tr.editing");
+  const errEl = document.getElementById("reg_row_err");
+  if(!row) return;
+  const idx = registry.findIndex(r=>r.id===rid);
+  if(idx < 0){ editingRegId = null; renderRegistry(); return; }
+  const cur = registry[idx];
+  const val = f => { const el = row.querySelector("input[data-f='"+f+"']"); return el ? el.value.trim() : ""; };
+  const formal = val("formal").toUpperCase();
+  const abbr = val("abbr").toUpperCase();
+  const name = val("name");
+  const abbrName = val("abbrName");
+  const fail = m => { if(errEl) errEl.textContent = m; };
+
+  if(!formal){ fail("정식코드를 입력해주세요"); return; }
+  if(!abbr){ fail("약식코드를 입력해주세요"); return; }
+  if(!name){ fail("품목명을 입력해주세요"); return; }
+
+  // 다른 등록 품목과 중복되는지 확인 (자기 자신은 제외)
+  if(registry.some((r,i)=> i!==idx && r.formal===formal)){ fail("이미 등록된 정식코드입니다"); return; }
+  if(registry.some((r,i)=> i!==idx && r.abbr===abbr)){ fail("이미 등록된 약식코드입니다"); return; }
+  // 기존 품목등록 자료와 중복되는지 확인 (코드를 실제로 바꿨을 때만)
+  if(formal !== cur.formal && EXISTING_CODE_MAP.has(formal)){ fail("정식코드가 기존 품목등록 자료에 이미 있습니다"); return; }
+  if(abbr !== cur.abbr && EXISTING_CODE_MAP.has(abbr)){ fail("약식코드가 기존 품목등록 자료에 이미 있습니다"); return; }
+
+  cur.formal = formal;
+  cur.abbr = abbr;
+  cur.name = name;
+  cur.abbrName = abbrName;
+
+  // 코드를 직접 고쳤으면 내부 파생값(순번/사이즈알파벳/스타일문자)도 코드에 맞춰 다시 계산
+  const pa = reparseAbbr(abbr);
+  if(pa){ cur.brandAbbr = pa.brandAbbr; cur.seq = pa.seq; cur.sizeLetter = pa.sizeLetter; }
+  const pf = reparseFormal(formal);
+  if(pf){ cur.styleLetter = pf.styleLetter; }
+
+  editingRegId = null;
+  await saveRegistry();
+  renderRegistry();
+  renderAll();
 }
 
 ["f_sizeval","f_sizeunit","f_sizeoverride","f_basekey","f_color","f_style_override"].forEach(id=>{
@@ -816,7 +1074,7 @@ document.getElementById("f_brand_code").addEventListener("input", ()=>{ state.cu
 ["cc_major_name","cc_major_code","cc_sub1_name","cc_sub1_code","cc_sub2_name","cc_sub2_code"].forEach(id=>{
   document.getElementById(id).addEventListener("input", ()=>{ syncCustomCatInputs(); renderAll(); });
 });
-document.getElementById("reg_search").addEventListener("input", renderRegistry);
+document.getElementById("reg_search").addEventListener("input", ()=>{ editingRegId = null; renderRegistry(); });
 
 document.getElementById("f_name").addEventListener("input", ()=>{ nameLocked = true; });
 document.getElementById("btn_name_refresh").addEventListener("click", ()=>{ nameLocked = false; renderAll(); });
@@ -1020,8 +1278,10 @@ document.getElementById("btn_save").addEventListener("click", async ()=>{
     id: Date.now()+"_"+Math.random().toString(36).slice(2,7),
     formal: fc, abbr: ab.code, name: name, abbrName: abbrName,
     brandAbbr: b.code2, baseKey: baseKey, seq: r.seq, sizeLetter: r.letter,
-    specKey: specKeyForStyle(), styleLetter: styleLetter()
+    specKey: specKeyForStyle(), styleLetter: styleLetter(),
+    form: snapshotForm()
   });
+  loadedRegId = null; loadedSnapshot = null;
   await saveRegistry();
   renderRegistry();
   renderAll();
@@ -1039,7 +1299,13 @@ document.getElementById("btn_reset").addEventListener("click", ()=>{
   document.getElementById("f_style_override").value = "";
   document.getElementById("save_err").textContent = "";
   nameLocked = false; abbrNameLocked = false;
+  loadedRegId = null; loadedSnapshot = null;
   renderAll();
+  renderRegistry();
+});
+
+document.getElementById("btn_loaded_clear").addEventListener("click", ()=>{
+  document.getElementById("btn_reset").click();
 });
 
 document.getElementById("remote_load").addEventListener("click", ()=>{
