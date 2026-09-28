@@ -51,13 +51,27 @@
   .pcg-details summary{cursor:pointer;font-size:13px;font-weight:500;color:#2c2c2a;padding:10px 0;}
   .pcg-mgmt-block{border-top:1px solid #e5e3da;padding-top:14px;margin-top:14px;}
   textarea.pcg-input{min-height:90px;font-family:monospace;font-size:12px;resize:vertical;}
+  .pcg-tabs{display:flex;gap:4px;border-bottom:1px solid #d3d1c7;margin:0 0 22px;}
+  .pcg-tab{padding:10px 18px;font-size:14px;cursor:pointer;color:#5f5e5a;border-bottom:2px solid transparent;margin-bottom:-1px;user-select:none;}
+  .pcg-tab:hover{color:#2c2c2a;}
+  .pcg-tab.sel{color:#2c2c2a;font-weight:600;border-bottom-color:#2c2c2a;}
+  .pcg-sub{font-size:11.5px;color:#5f5e5a;margin:0 0 4px;}
+  .pcg-boxrow{display:flex;gap:8px;align-items:center;}
+  .pcg-boxrow input{flex:1;min-width:0;}
+  .pcg-boxrow .x{color:#888780;font-size:12px;}
 </style>
 
 <div style="border-bottom:2px solid #2c2c2a;padding-bottom:10px;margin-bottom:22px;">
   <div style="font-size:19px;font-weight:600;">품목코드 생성기</div>
-  <div style="font-size:12.5px;color:#5f5e5a;margin-top:3px;">카테고리와 사양을 선택하면 품목명·정식코드·약식코드가 자동으로 만들어져요.</div>
+  <div style="font-size:12.5px;color:#5f5e5a;margin-top:3px;">품목코드를 만들고, 등록한 품목의 단가·규격·박스 정보를 입력해요.</div>
 </div>
 
+<div class="pcg-tabs">
+  <div class="pcg-tab sel" data-tab="code">품목코드 생성</div>
+  <div class="pcg-tab" data-tab="info">품목등록정보</div>
+</div>
+
+<div id="tab_code">
 <div class="pcg-loaded" id="loaded_banner" style="display:none;">
   <div>
     <div id="loaded_title" style="font-weight:600;"></div>
@@ -232,6 +246,14 @@
       <button class="pcg-btn icon pcg-lockbtn" id="btn_abbrname_refresh" title="자동 생성값으로 되돌리기">↻</button>
     </div>
   </div>
+  <div style="margin-top:12px;">
+    <div class="pcg-lbl">중국명칭 (품목명 자동 번역 · 직접 수정 가능)</div>
+    <div class="pcg-fieldwrap">
+      <input class="pcg-input" id="f_cnname" style="padding-right:38px;">
+      <button class="pcg-btn icon pcg-lockbtn" id="btn_cnname_refresh" title="자동 번역값으로 되돌리기">↻</button>
+    </div>
+    <div class="pcg-err" id="cn_warn"></div>
+  </div>
 </div>
 
 <div class="pcg-sec" style="display:flex;gap:10px;align-items:center;">
@@ -251,6 +273,115 @@
   <div style="margin-top:10px;">
     <button class="pcg-btn ghost sm" id="btn_export_registry">등록된 품목 엑셀로 다운로드 (품목코드등록.xlsx 양식)</button>
     <span class="pcg-err" id="reg_export_status"></span>
+  </div>
+</div>
+
+</div><!-- /tab_code -->
+
+<div id="tab_info" style="display:none;">
+  <div class="pcg-sec">
+    <div class="pcg-lbl">등록된 품목 선택</div>
+    <div class="pcg-row">
+      <div style="flex:0 0 160px;"><input class="pcg-input" id="i_search" placeholder="검색"></div>
+      <div><select class="pcg-input" id="i_select"></select></div>
+    </div>
+    <div class="pcg-hint">✓ 표시는 등록정보를 이미 저장한 품목이에요. 품목코드 생성 탭에서 품목을 불러오거나 새로 등록하면 여기서 자동으로 선택돼요.</div>
+  </div>
+
+  <div id="i_empty" class="pcg-card pcg-sec" style="color:#5f5e5a;font-size:13px;">위에서 품목을 선택하세요. 먼저 품목코드 생성 탭에서 품목을 등록해야 목록에 나타나요.</div>
+
+  <div id="i_form" style="display:none;">
+    <div class="pcg-card pcg-sec">
+      <div class="pcg-code" id="i_card_code" style="font-size:16px;"></div>
+      <div id="i_card_name" style="font-size:13px;color:#5f5e5a;margin-top:4px;"></div>
+    </div>
+
+    <div class="pcg-sec">
+      <div class="pcg-lbl">단가</div>
+      <div class="pcg-row">
+        <div><div class="pcg-sub">단가(RMB)</div><input class="pcg-input" id="i_rmb" inputmode="decimal" placeholder="예: 32.5"></div>
+        <div><div class="pcg-sub">단가(USD)</div><input class="pcg-input" id="i_usd" inputmode="decimal" placeholder="예: 4.6"></div>
+      </div>
+    </div>
+
+    <div class="pcg-sec">
+      <div class="pcg-lbl">기본 정보</div>
+      <div class="pcg-row" style="margin-bottom:8px;">
+        <div><div class="pcg-sub">입수량 (카톤 1박스당 개수)</div><input class="pcg-input" id="i_qty" inputmode="numeric" placeholder="예: 12"></div>
+        <div><div class="pcg-sub">바코드</div><input class="pcg-input" id="i_barcode" inputmode="numeric" placeholder="예: 8801234567890"></div>
+      </div>
+      <div class="pcg-row">
+        <div><div class="pcg-sub">구매처</div><input class="pcg-input" id="i_vendor" placeholder="예: Jiangxi Jingshang"></div>
+        <div><div class="pcg-sub">택배구분</div><input class="pcg-input" id="i_delivery" list="dl_delivery" placeholder="선택 또는 직접입력"></div>
+      </div>
+      <datalist id="dl_delivery"><option value="극소"><option value="소형"><option value="중형"><option value="대1"><option value="대2"><option value="이형"><option value="취급제한"></datalist>
+    </div>
+
+    <div class="pcg-sec">
+      <div class="pcg-lbl">규격 (아래 항목을 고르면 자동으로 만들어지고, 직접 수정도 가능해요)</div>
+      <div class="pcg-fieldwrap">
+        <input class="pcg-input" id="i_spec" style="padding-right:38px;" placeholder="예: 외경 Φ24cm, H:10cm, 3.5L, 1250g, 2.0T, 스텐304, 화이트">
+        <button class="pcg-btn icon pcg-lockbtn" id="i_spec_refresh" title="자동 생성값으로 되돌리기">↻</button>
+      </div>
+      <div style="margin-top:12px;">
+        <div class="pcg-sub">직경 기준</div>
+        <div id="i_basis"></div>
+      </div>
+      <div class="pcg-row" style="margin-top:4px;margin-bottom:8px;">
+        <div><div class="pcg-sub">직경 (cm)</div><input class="pcg-input" id="i_dia" inputmode="decimal" placeholder="예: 24"></div>
+        <div><div class="pcg-sub">높이 (cm)</div><input class="pcg-input" id="i_height" inputmode="decimal" placeholder="예: 10"></div>
+        <div><div class="pcg-sub">전장 (손잡이 포함, cm) - 선택</div><input class="pcg-input" id="i_length" inputmode="decimal" placeholder="예: 38"></div>
+      </div>
+      <div class="pcg-row">
+        <div>
+          <div class="pcg-sub">용량</div>
+          <div class="pcg-boxrow">
+            <input class="pcg-input" id="i_capval" inputmode="decimal" placeholder="예: 3.5">
+            <select class="pcg-input" id="i_capunit" style="flex:0 0 70px;"><option value="L">L</option><option value="ml">ml</option></select>
+          </div>
+        </div>
+        <div><div class="pcg-sub">무게 (g)</div><input class="pcg-input" id="i_weight" inputmode="numeric" placeholder="예: 1250"></div>
+        <div><div class="pcg-sub">두께 (T)</div><input class="pcg-input" id="i_thick" inputmode="decimal" placeholder="예: 2.0"></div>
+      </div>
+      <div class="pcg-row" style="margin-top:8px;">
+        <div><div class="pcg-sub">자재</div><input class="pcg-input" id="i_material" list="dl_material" placeholder="선택 또는 직접입력"></div>
+        <div><div class="pcg-sub">컬러</div><input class="pcg-input" id="i_color" list="dl_color" placeholder="선택 또는 직접입력"></div>
+      </div>
+      <datalist id="dl_color"><option value="화이트"><option value="블랙"><option value="그레이"><option value="실버"><option value="레드"><option value="블루"><option value="네이비"><option value="그린"><option value="옐로우"><option value="오렌지"><option value="핑크"><option value="퍼플"><option value="브라운"><option value="베이지"><option value="골드"><option value="민트"><option value="아이보리"><option value="카키"></datalist>
+      <datalist id="dl_material"><option value="스텐201"><option value="스텐304"><option value="스텐316"><option value="스텐430"><option value="알루미늄"><option value="주물 알루미늄"><option value="단조 알루미늄"><option value="세라믹"><option value="무쇠"><option value="카본스틸"><option value="티타늄"><option value="PP"><option value="PE"><option value="실리콘"><option value="유리"><option value="우드"></datalist>
+    </div>
+
+    <div class="pcg-sec">
+      <div style="display:flex;justify-content:space-between;align-items:center;">
+        <div class="pcg-lbl" style="margin:0;">칼라박스 사이즈 (mm, 가로 x 세로 x 높이)</div>
+        <button class="pcg-btn icon" id="i_cbox_refresh" title="추정값으로 되돌리기">↻ 추정값</button>
+      </div>
+      <div class="pcg-boxrow" style="margin-top:8px;">
+        <input class="pcg-input" id="i_cb_w" inputmode="numeric" placeholder="가로"><span class="x">x</span>
+        <input class="pcg-input" id="i_cb_d" inputmode="numeric" placeholder="세로"><span class="x">x</span>
+        <input class="pcg-input" id="i_cb_h" inputmode="numeric" placeholder="높이">
+      </div>
+      <div class="pcg-hint" id="i_cbox_hint"></div>
+    </div>
+
+    <div class="pcg-sec">
+      <div style="display:flex;justify-content:space-between;align-items:center;">
+        <div class="pcg-lbl" style="margin:0;">카톤박스 사이즈 (mm, 가로 x 세로 x 높이)</div>
+        <button class="pcg-btn icon" id="i_carton_refresh" title="추정값으로 되돌리기">↻ 추정값</button>
+      </div>
+      <div class="pcg-boxrow" style="margin-top:8px;">
+        <input class="pcg-input" id="i_ct_w" inputmode="numeric" placeholder="가로"><span class="x">x</span>
+        <input class="pcg-input" id="i_ct_d" inputmode="numeric" placeholder="세로"><span class="x">x</span>
+        <input class="pcg-input" id="i_ct_h" inputmode="numeric" placeholder="높이">
+      </div>
+      <div class="pcg-hint" id="i_carton_hint"></div>
+    </div>
+
+    <div class="pcg-sec" style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;">
+      <button class="pcg-btn" id="i_save">등록정보 저장</button>
+      <button class="pcg-btn ghost" id="i_export">등록된 품목 엑셀로 다운로드</button>
+      <span class="pcg-err" id="i_status"></span>
+    </div>
   </div>
 </div>
 
@@ -278,7 +409,7 @@ const EXISTING_CODES = [["0584", "쿠치니압력솥/3.5리터"], ["0625", "쿠�
 let state = {brand:null, customBrand:{name:"",code2:""}, group:"주방", major:null, sub1:null, sub2:null,
   customCat:{majorName:"",majorCode:"",sub1Name:"",sub1Code:"",sub2Name:"",sub2Code:""}};
 let registry = [];
-let nameLocked = false, abbrNameLocked = false;
+let nameLocked = false, abbrNameLocked = false, cnNameLocked = false;
 
 let REMOTE_SEED = null;
 
@@ -785,6 +916,16 @@ function renderAll(){
   if(!abbrNameLocked){
     document.getElementById("f_abbrname").value = autoAbbrName();
   }
+  if(!cnNameLocked){
+    document.getElementById("f_cnname").value = autoCnName();
+  }
+  if(!cnNameLocked){
+    const b0 = currentBrand();
+    const dropped = droppedWords(document.getElementById("f_name").value, b0 ? b0.code2 : "");
+    document.getElementById("cn_warn").textContent = dropped.length ? ("번역할 수 없어서 뺀 단어: " + dropped.join(", ")) : "";
+  }else{
+    document.getElementById("cn_warn").textContent = "";
+  }
 
   const fc = formalCode();
   const ab = abbrCode();
@@ -918,7 +1059,10 @@ function loadRegistryItem(id){
   nameLocked = true; abbrNameLocked = true;
   document.getElementById("f_name").value = r.name || "";
   document.getElementById("f_abbrname").value = r.abbrName || "";
+  cnNameLocked = !!r.cnLocked;
+  document.getElementById("f_cnname").value = recordCnName(r);
   loadedRegId = r.id;
+  selectInfoItem(r.id);
   loadedSnapshot = JSON.stringify(snapshotForm());
   document.getElementById("save_err").className = "pcg-err";
   document.getElementById("save_err").textContent = "";
@@ -986,6 +1130,7 @@ function renderRegistry(){
     }
   });
   document.getElementById("reg_count").textContent = registry.length;
+  if(typeof renderInfoTab === "function" && document.getElementById("i_select")) renderInfoTab();
 
   body.querySelectorAll(".pcg-rowbtn").forEach(el=>{
     const act = el.getAttribute("data-act");
@@ -1080,6 +1225,9 @@ document.getElementById("f_name").addEventListener("input", ()=>{ nameLocked = t
 document.getElementById("btn_name_refresh").addEventListener("click", ()=>{ nameLocked = false; renderAll(); });
 document.getElementById("f_abbrname").addEventListener("input", ()=>{ abbrNameLocked = true; });
 document.getElementById("btn_abbrname_refresh").addEventListener("click", ()=>{ abbrNameLocked = false; renderAll(); });
+document.getElementById("f_name").addEventListener("input", ()=>{ if(!cnNameLocked){ document.getElementById("f_cnname").value = autoCnName(); renderAll(); } });
+document.getElementById("f_cnname").addEventListener("input", ()=>{ cnNameLocked = true; document.getElementById("cn_warn").textContent = ""; });
+document.getElementById("btn_cnname_refresh").addEventListener("click", ()=>{ cnNameLocked = false; renderAll(); });
 
 document.getElementById("mg_sub_group").addEventListener("change", renderMgmtSelects);
 
@@ -1207,6 +1355,120 @@ function exportCategoriesToExcel(){
 }
 document.getElementById("mg_export").addEventListener("click", exportCategoriesToExcel);
 
+// ===== 중국명칭 자동 번역 (단어 사전 방식) =====
+// 긴 단어부터 먼저 바꿔서 "편수냄비"가 "냄비"보다 먼저 처리되게 한다.
+// 사전에 없는 단어는 한글로 남고, 화면에 경고로 표시된다. 필요하면 여기에 단어를 추가하면 됨.
+const CN_DICT = {
+  // 재질/공정
+  "올스텐":"全不锈钢","스테인레스":"不锈钢","스테인리스":"不锈钢","스텐":"不锈钢",
+  "홑겹":"单层","바닥3중":"三层复合底","통3중":"三层钢","통5중":"五层钢","3중":"三层","5중":"五层","이중":"双层","다단식":"多层","3단":"三层","2단":"双层","4단":"四层","1단":"",
+  "판재 알루미늄IH":"铝板电磁炉","판재 알루미늄":"铝板","단조 알루미늄IH":"锻造铝电磁炉","단조 알루미늄":"锻造铝","주물 알루미늄IH":"铸铝电磁炉","주물 알루미늄":"铸铝","알루미늄":"铝",
+  "세라믹IH":"陶瓷电磁炉","세라믹":"陶瓷","무쇠":"铸铁","양은":"铝","카본스틸":"碳钢","티타늄":"钛","에나멜":"珐琅","코팅":"涂层",
+  "무연마제":"无研磨剂","무연마":"免抛光","인덕션":"电磁炉","유광":"亮光","무광":"哑光","샤틴":"拉丝","진공":"真空",
+  "원목":"实木","우드":"木","월넛":"胡桃木","티크":"柚木","유리":"玻璃","합성피혁":"合成皮革",
+  // 냄비
+  "편수냄비":"单柄锅","양수냄비":"双耳锅","전골 찜냄비":"蒸汤锅","전골냄비":"浅汤锅","찜냄비":"蒸锅","라면냄비":"泡面锅","파스타냄비":"意面锅","훠궈냄비":"火锅","튀김냄비":"油炸锅","냄비":"锅",
+  "편수":"单柄锅","양수":"双耳锅","전골":"浅汤锅","곰솥":"汤锅","잔치팬":"宴会锅","케틀팟":"壶锅","멀티팟":"多用锅","들통":"汤桶","함마톤":"锤纹","해머톤":"锤纹",
+  "빨래솥":"煮衣锅","압력솥":"压力锅","뚝배기":"砂锅","찜솥":"蒸锅","반합":"饭盒锅","찜기":"蒸笼","스티머":"蒸笼","스팀쿠커":"蒸锅",
+  // 팬
+  "후라이팬":"煎锅","프라이팬":"煎锅","궁중팬":"炒锅","하이브리드팬":"混合锅","사각팬":"方形锅","양수팬":"双耳锅","구이팬":"烤盘","달걀팬":"煎蛋锅","에그팬":"煎蛋锅","소테팬":"炒锅","그릴팬":"烤盘","멀티팬":"多用锅","빠에야팬":"海鲜饭锅","웍":"炒锅","팬":"锅",
+  "직화구이":"烤盘","석쇠구이판":"烤网",
+  // 주전자
+  "차망휘슬주전자":"滤茶鸣笛水壶","휘슬주전자":"鸣笛水壶","차망주전자":"滤茶水壶","하모니주전자":"水壶","들통주전자":"水壶","주전자":"水壶","차망":"滤茶","휘슬":"鸣笛",
+  // 식기/컵
+  "합식기":"带盖饭碗","입식기":"带盖饭碗","합뱅이":"饭碗","대접":"汤碗","면기":"面碗","냉면기":"冷面碗","탕기":"汤碗","찬기":"小菜碟","찬접시":"小菜碟",
+  "파스타접시":"意面盘","파스타 플레이트":"意面盘","샐러드볼":"沙拉碗","사각접시":"方盘","고기접시":"烤肉盘","원형접시":"圆盘","접시":"盘","식판":"餐盘",
+  "물컵":"水杯","물병":"水瓶","텀블러":"保温杯","캔쿨러":"罐装保冷杯","진공컵":"真空杯","머그컵":"马克杯","머그":"马克杯","컵":"杯",
+  "숟가락":"勺子","젓가락":"筷子","포크":"叉子","나이프":"餐刀","방자":"铜器风",
+  // 조리도구
+  "다용도커버":"多用途盖","멀티커버":"多用途盖","믹싱볼(혼합)":"搅拌碗","믹싱볼":"搅拌碗","타공망":"漏网","타공볼":"漏盆","펀칭볼":"漏盆","채반":"沥水篮","쌀함박":"淘米盆","쌀 세척볼":"淘米盆","쌀세척볼":"淘米盆",
+  "다라이":"大盆","도마":"砧板","망뒤집개":"漏铲","뒤집개":"锅铲","국자":"汤勺","조리스푼":"烹饪勺","스푼":"勺子","거품기":"打蛋器","스탠드":"支架",
+  "가위형집게":"剪刀夹","가위형 집게":"剪刀夹","집게":"夹子","핀셋":"镊子","계량컵":"量杯","뜰채":"漏勺","건지개":"漏勺","차거름망":"滤茶网","튀김망":"炸篮",
+  "트레이(세트)":"托盘套装","트레이":"托盘","망(랙/Rack)":"架网","계란삶기":"煮蛋器","멀티핸들":"多用手柄","다용도볼 타공":"多用途漏盆","다용도볼 도마":"多用途砧板","다용도볼 세트":"多用途碗套装","다용도볼":"多用途碗","멀티볼":"多用途碗","채칼":"刨丝器","유리커버":"玻璃盖","유리뚜껑":"玻璃盖","뚜껑":"盖","핸들":"手柄","손잡이":"把手",
+  // 싱크/용기
+  "수세미건조대":"洗碗布沥水架","수세미 건조대":"洗碗布沥水架","다용도거치대":"多用途置物架","다용도 거치대":"多用途置物架","음식물봉투거치대":"垃圾袋架","음식물쓰레기봉투 거치대":"垃圾袋架","국자받침대":"汤勺架",
+  "진공밀폐용기":"真空密封容器","밀폐반찬통":"密封小菜盒","밀폐도시락통":"密封饭盒","밀폐용기":"密封容器","다용도통":"多用途桶","설거지통":"洗碗盆","스텐통":"不锈钢桶",
+  // 스포츠
+  "골프장갑":"高尔夫手套","장갑홀더":"手套夹","장갑":"手套","볼마커":"球标","마커":"球标","클립":"夹子","합피":"合成皮","반양피":"半羊皮","올양피":"全羊皮","양피":"羊皮",
+  "마스크":"口罩","팔토시":"冰袖","자외선 차단":"防晒","로고 타입":"LOGO款","캐릭터 타입":"卡通款","로고":"LOGO","캐릭터":"卡通","파츠":"配件","세트":"套装",
+  // 형태/기타
+  "사각":"方形","크로스":"交叉","칼라":"彩色","컬러":"彩色","스마일":"微笑","베이직":"基础款","프로":"专业","원형":"圆形","타원형":"椭圆形","미니":"迷你","업소용":"商用","다용도":"多用途","깊은":"深","낮은":"低","높은":"高","일자형":"直型","실속":"实惠",
+  // 컬러
+  "화이트":"白色","흰색":"白色","백색":"白色","블랙":"黑色","검정색":"黑色","검정":"黑色","그레이":"灰色","회색":"灰色","실버":"银色","레드":"红色","빨간색":"红色","빨강":"红色",
+  "블루":"蓝色","파랑":"蓝色","네이비":"藏青色","그린":"绿色","초록":"绿色","옐로우":"黄色","노랑":"黄色","오렌지":"橙色","주황":"橙色","핑크":"粉色","분홍":"粉色",
+  "퍼플":"紫色","보라":"紫色","브라운":"棕色","베이지":"米色","골드":"金色","민트":"薄荷绿","아이보리":"象牙白","카키":"卡其色","크림":"奶油色"
+};
+const CN_KEYS = Object.keys(CN_DICT).sort((a,b)=>b.length-a.length);
+const CN_SIZE_WORDS = {"왕왕대":"特特大","왕대":"特大","특대":"特大","대":"大","중":"中","소":"小"};
+
+// 품목명에서 맨 앞 브랜드명을 약자로 바꾸고, 나머지를 사전으로 번역
+function translateRaw(name, brandAbbr){
+  let s = String(name||"").trim();
+  let code = brandAbbr || "";
+  // 맨 앞 브랜드명 찾기 (긴 이름부터)
+  const brands = BRANDS.slice().sort((a,b)=>b.name.length-a.name.length);
+  const hit = brands.find(b=> s.startsWith(b.name+" ") || s===b.name);
+  if(hit){ s = s.slice(hit.name.length).trim(); if(!code) code = hit.code2; }
+  else if(code){
+    const own = BRANDS.find(b=>b.code2===code);
+    if(own && s.startsWith(own.name)) s = s.slice(own.name.length).trim();
+    else if(s.toUpperCase().startsWith(code+" ")) s = s.slice(code.length).trim();
+  }
+  // (소)(중)(대) 같은 크기 표기
+  s = s.replace(/\((왕왕대|왕대|특대|대|중|소)\)/g, (m,w)=>"("+CN_SIZE_WORDS[w]+")");
+  // 3종세트 / 2P 세트 / 18호 / 10개
+  s = s.replace(/(\d+)\s*종\s*([A-Z])?\s*세트/g, (m,n,l)=>n+"件套"+(l||"")).replace(/(\d+)\s*[Pp]\s*세트/g, "$1件套").replace(/(\d+)\s*호/g, "$1号").replace(/(\d+)\s*개/g, "$1个");
+  // 사전 치환 (긴 단어 먼저, 한 번 바뀐 자리는 다시 안 건드림)
+  const tokens = [s];
+  CN_KEYS.forEach(k=>{
+    for(let i=0;i<tokens.length;i++){
+      const t = tokens[i];
+      if(typeof t!=="string" || t.indexOf(k)<0) continue;
+      const parts = t.split(k);
+      const out = [];
+      parts.forEach((p,j)=>{ if(j>0) out.push({cn:CN_DICT[k]}); if(p) out.push(p); });
+      tokens.splice(i,1,...out);
+      i += out.length-1;
+    }
+  });
+  let body = tokens.map(t=> typeof t==="string" ? t : t.cn).join("");
+  // 중국어 글자 사이의 띄어쓰기는 없앤다
+  body = body.replace(/([一-鿿])\s+(?=[一-鿿])/g, "$1").replace(/\s{2,}/g," ").trim();
+  return (code ? code+" " : "") + body;
+}
+// 사전에 없어서 한글로 남은 단어(도가, 벨라 같은 제품 라인명)는 중국명칭에서 뺀다
+function translateToChinese(name, brandAbbr){
+  let t = translateRaw(name, brandAbbr).replace(/[가-힣]+/g, " ");
+  t = t.replace(/\(\s*\)/g, " ").replace(/\(\s+/g, "(").replace(/\s+\)/g, ")").replace(/\s{2,}/g, " ");
+  t = t.replace(/([一-鿿])\s+(?=[一-鿿])/g, "$1").trim();
+  return t;
+}
+function droppedWords(name, brandAbbr){
+  return untranslatedWords(translateRaw(name, brandAbbr));
+}
+function untranslatedWords(cn){
+  return (String(cn||"").match(/[가-힣]+/g) || []).filter((w,i,a)=>a.indexOf(w)===i);
+}
+function autoCnName(){
+  const b = currentBrand();
+  return translateToChinese(document.getElementById("f_name").value, b ? b.code2 : "");
+}
+function recordCnName(r){
+  return r.cnLocked && r.cnName ? r.cnName : translateToChinese(r.name, r.brandAbbr);
+}
+
+// 엑셀 다운로드 시 기본으로 채워지는 값
+const EXPORT_DEFAULTS = {
+  "품목구분": 3,
+  "세트여부": 0,
+  "규격구분": 1,
+  "단위": "EA",
+  "당수량(분모)": 1,
+  "품목그룹1": "그라첸",
+  "품목그룹2": "공용",
+  "품목그룹3": "상품"
+};
+
 function exportRegistryToExcel(){
   const statusEl = document.getElementById("reg_export_status");
   if(typeof XLSX === "undefined"){
@@ -1227,10 +1489,23 @@ function exportRegistryToExcel(){
   const rows = [headers];
   registry.forEach(r=>{
     const row = new Array(headers.length).fill(null);
-    row[0] = r.formal;
-    row[1] = r.name;
-    row[23] = r.abbrName || "";
-    row[33] = r.abbr;
+    const col = h => headers.indexOf(h);
+    Object.keys(EXPORT_DEFAULTS).forEach(h=>{ if(col(h)>=0) row[col(h)] = EXPORT_DEFAULTS[h]; });
+    row[col("품목코드")] = r.formal;
+    row[col("품목명")] = r.name;
+    row[col("품목명(약식)")] = r.abbrName || "";
+    row[col("중국명칭")] = recordCnName(r);
+    row[col("품목코드(약식)")] = r.abbr;
+    const inf = r.info || {};
+    const setIf = (h, v)=>{ if(v!=null && v!=="" && col(h)>=0) row[col(h)] = v; };
+    setIf("규격", inf.spec);
+    setIf("바코드", inf.barcode);
+    setIf("RMB", numOrText(inf.rmb));
+    setIf("USD", numOrText(inf.usd));
+    setIf("구매처", inf.vendor);
+    setIf("택배구분", inf.delivery);
+    setIf("칼라박스 사이즈", boxStr(inf.cbox));
+    setIf("카톤박스 사이즈", boxStr(inf.carton));
     rows.push(row);
   });
   const ws = XLSX.utils.aoa_to_sheet(rows);
@@ -1277,10 +1552,12 @@ document.getElementById("btn_save").addEventListener("click", async ()=>{
   registry.push({
     id: Date.now()+"_"+Math.random().toString(36).slice(2,7),
     formal: fc, abbr: ab.code, name: name, abbrName: abbrName,
+    cnName: document.getElementById("f_cnname").value.trim(), cnLocked: cnNameLocked,
     brandAbbr: b.code2, baseKey: baseKey, seq: r.seq, sizeLetter: r.letter,
     specKey: specKeyForStyle(), styleLetter: styleLetter(),
     form: snapshotForm()
   });
+  selectInfoItem(registry[registry.length-1].id);
   loadedRegId = null; loadedSnapshot = null;
   await saveRegistry();
   renderRegistry();
@@ -1298,7 +1575,7 @@ document.getElementById("btn_reset").addEventListener("click", ()=>{
   document.getElementById("f_color").value = "";
   document.getElementById("f_style_override").value = "";
   document.getElementById("save_err").textContent = "";
-  nameLocked = false; abbrNameLocked = false;
+  nameLocked = false; abbrNameLocked = false; cnNameLocked = false;
   loadedRegId = null; loadedSnapshot = null;
   renderAll();
   renderRegistry();
@@ -1313,6 +1590,197 @@ document.getElementById("remote_load").addEventListener("click", ()=>{
   if(!url){ document.getElementById("remote_status").textContent = "URL을 입력해주세요"; return; }
   document.getElementById("remote_status").textContent = "불러오는 중...";
   loadRemoteData(url, false);
+});
+
+// ===== 품목등록정보 탭 =====
+let infoSelId = null;
+let infoSpecLocked = false, infoCboxLocked = false, infoCartonLocked = false;
+let infoBasis = "외경";
+const INFO_BASIS = ["외경","내경"];
+
+function $i(id){ return document.getElementById(id); }
+function numOf(id){ const v = parseFloat(String($i(id).value).replace(/,/g,"")); return isNaN(v) ? null : v; }
+function ceil5(x){ return Math.ceil(x/5)*5; }
+
+function showTab(t){
+  $i("tab_code").style.display = t==="code" ? "" : "none";
+  $i("tab_info").style.display = t==="info" ? "" : "none";
+  document.querySelectorAll(".pcg-tab").forEach(el=> el.classList.toggle("sel", el.getAttribute("data-tab")===t));
+  if(t==="info") renderInfoTab();
+}
+
+function renderInfoBasis(){
+  const el = $i("i_basis"); el.innerHTML = "";
+  INFO_BASIS.forEach(b=>{
+    const d = document.createElement("div");
+    d.className = "pcg-chip" + (infoBasis===b ? " sel" : "");
+    d.textContent = b;
+    d.onclick = ()=>{ infoBasis = b; renderInfoBasis(); renderInfoDerived(); };
+    el.appendChild(d);
+  });
+}
+
+function autoSpec(){
+  const dia = numOf("i_dia"), h = numOf("i_height"), len = numOf("i_length");
+  const cap = numOf("i_capval"), capUnit = $i("i_capunit").value;
+  const w = numOf("i_weight");
+  const thick = $i("i_thick").value.trim().replace(/\s*[Tt]$/,"");
+  const mat = $i("i_material").value.trim(), color = $i("i_color").value.trim();
+  const parts = [];
+  if(dia!=null) parts.push(infoBasis+" Φ"+dia+"cm");
+  if(h!=null) parts.push("H:"+h+"cm");
+  if(len!=null) parts.push("전장"+len+"cm");
+  if(cap!=null) parts.push(cap+capUnit);
+  if(w!=null) parts.push(w+"g");
+  if(thick) parts.push(thick+"T");
+  if(mat) parts.push(mat);
+  if(color) parts.push(color);
+  return parts.join(", ");
+}
+
+// 제품 외형 크기(mm). 내경 기준이면 벽두께/림을 감안해 10mm 더한다.
+function productDims(){
+  const dia = numOf("i_dia"), h = numOf("i_height"), len = numOf("i_length");
+  if(dia==null || h==null) return null;
+  const d = dia*10 + (infoBasis==="내경" ? 10 : 0);
+  const w = Math.max(d, len!=null ? len*10 : 0);
+  return {w, d, h: h*10};
+}
+// 칼라박스 추정: 제품 크기에 사방 여유 20mm
+function estCbox(){
+  const p = productDims();
+  if(!p) return null;
+  return {w: ceil5(p.w+20), d: ceil5(p.d+20), h: ceil5(p.h+20)};
+}
+function boxFromInputs(pre){
+  const w = numOf(pre+"w"), d = numOf(pre+"d"), h = numOf(pre+"h");
+  return (w && d && h) ? {w, d, h} : null;
+}
+// 카톤박스 추정: 칼라박스를 입수량만큼 가로x세로x단으로 쌓는 배열 중 겉면적이 가장 작은 것
+function estCarton(cb, n){
+  if(!cb || !n || n<1) return null;
+  n = Math.round(n);
+  const lim = Math.ceil(n*1.25);
+  let best = null;
+  for(let nx=1; nx<=n; nx++){
+    for(let ny=1; nx*ny<=lim; ny++){
+      const nz = Math.ceil(n/(nx*ny));
+      const prod = nx*ny*nz;
+      if(prod>lim) continue;
+      const W = nx*cb.w+10, D = ny*cb.d+10, H = nz*cb.h+10;
+      let score = 2*(W*D+W*H+D*H) * (1 + (prod-n)/n);
+      if(Math.max(W,D,H) > 650) score *= 1.5;
+      if(!best || score<best.score) best = {score, nx, ny, nz, prod, w:ceil5(W), d:ceil5(D), h:ceil5(H)};
+    }
+  }
+  return best;
+}
+
+function setBox(pre, b){
+  $i(pre+"w").value = b ? b.w : "";
+  $i(pre+"d").value = b ? b.d : "";
+  $i(pre+"h").value = b ? b.h : "";
+}
+
+function renderInfoDerived(){
+  if(!infoSelId) return;
+  if(!infoSpecLocked) $i("i_spec").value = autoSpec();
+
+  const cbEst = estCbox();
+  if(!infoCboxLocked) setBox("i_cb_", cbEst);
+  $i("i_cbox_hint").textContent = infoCboxLocked
+    ? "직접 입력한 값이에요. ↻ 추정값을 누르면 제품 크기로 다시 계산해요."
+    : (cbEst ? "추정값: 제품 크기(직경·높이"+(numOf("i_length")!=null?"·전장":"")+")에 사방 여유 20mm를 더했어요." : "직경과 높이를 입력하면 추정값이 채워져요.");
+
+  const cb = boxFromInputs("i_cb_");
+  const qty = numOf("i_qty");
+  const ct = estCarton(cb, qty);
+  if(!infoCartonLocked) setBox("i_ct_", ct);
+  if(infoCartonLocked){
+    $i("i_carton_hint").textContent = "직접 입력한 값이에요. ↻ 추정값을 누르면 입수량 기준으로 다시 계산해요.";
+  }else if(ct){
+    $i("i_carton_hint").textContent = "추정값: 칼라박스를 "+ct.nx+" x "+ct.ny+" x "+ct.nz+"단으로 배열 ("+ct.prod+"칸"+(ct.prod>Math.round(qty)?", "+(ct.prod-Math.round(qty))+"칸 여유":"")+"), 여유 10mm 포함";
+  }else{
+    $i("i_carton_hint").textContent = "칼라박스 사이즈와 입수량이 있으면 추정값이 채워져요.";
+  }
+}
+
+function renderInfoTab(){
+  const q = $i("i_search").value.trim().toLowerCase();
+  const sel = $i("i_select");
+  const list = registry.slice().reverse().filter(r=> !q || r.id===infoSelId || r.name.toLowerCase().includes(q) || r.formal.toLowerCase().includes(q) || r.abbr.toLowerCase().includes(q));
+  if(infoSelId && !registry.some(r=>r.id===infoSelId)) infoSelId = null;
+  sel.innerHTML = "<option value=''>"+(registry.length ? "품목을 선택하세요 ("+registry.length+"건)" : "등록된 품목이 없어요")+"</option>" +
+    list.map(r=>"<option value='"+escHtml(r.id)+"'"+(r.id===infoSelId?" selected":"")+">"+(r.info?"✓ ":"")+escHtml(r.formal)+" / "+escHtml(r.name)+"</option>").join("");
+  const r = infoSelId ? registry.find(x=>x.id===infoSelId) : null;
+  $i("i_empty").style.display = r ? "none" : "";
+  $i("i_form").style.display = r ? "" : "none";
+  if(r){
+    $i("i_card_code").textContent = r.formal + "  ·  " + r.abbr;
+    $i("i_card_name").textContent = r.name;
+  }
+}
+
+const INFO_TEXT_FIELDS = {rmb:"i_rmb", usd:"i_usd", qty:"i_qty", barcode:"i_barcode", vendor:"i_vendor", delivery:"i_delivery",
+  spec:"i_spec", dia:"i_dia", height:"i_height", length:"i_length", capVal:"i_capval", capUnit:"i_capunit", weight:"i_weight", thick:"i_thick", material:"i_material", color:"i_color"};
+
+function selectInfoItem(id){
+  const r = registry.find(x=>x.id===id);
+  infoSelId = r ? r.id : null;
+  const info = (r && r.info) || {};
+  Object.keys(INFO_TEXT_FIELDS).forEach(k=>{ $i(INFO_TEXT_FIELDS[k]).value = info[k]!=null ? info[k] : (k==="capUnit" ? "L" : ""); });
+  if(r && !r.info && r.form && r.form.color) $i("i_color").value = r.form.color;
+  infoBasis = info.basis || "외경";
+  infoSpecLocked = !!info.specLocked;
+  infoCboxLocked = !!info.cboxLocked;
+  infoCartonLocked = !!info.cartonLocked;
+  setBox("i_cb_", info.cbox || null);
+  setBox("i_ct_", info.carton || null);
+  $i("i_status").textContent = "";
+  renderInfoBasis();
+  renderInfoTab();
+  renderInfoDerived();
+}
+
+async function saveInfo(){
+  const st = $i("i_status");
+  const r = registry.find(x=>x.id===infoSelId);
+  if(!r){ st.className = "pcg-err"; st.textContent = "품목을 먼저 선택해주세요"; return; }
+  const info = {};
+  Object.keys(INFO_TEXT_FIELDS).forEach(k=>{ info[k] = $i(INFO_TEXT_FIELDS[k]).value.trim(); });
+  info.basis = infoBasis;
+  info.specLocked = infoSpecLocked; info.cboxLocked = infoCboxLocked; info.cartonLocked = infoCartonLocked;
+  info.cbox = boxFromInputs("i_cb_");
+  info.carton = boxFromInputs("i_ct_");
+  r.info = info;
+  await saveRegistry();
+  renderInfoTab();
+  st.className = "pcg-ok";
+  st.textContent = "저장되었습니다: " + r.formal;
+  setTimeout(()=>{ st.className = "pcg-err"; st.textContent = ""; }, 4000);
+}
+
+function boxStr(b){ return b ? (b.w+"*"+b.d+"*"+b.h) : ""; }
+function numOrText(v){ if(v==null || v==="") return null; const n = parseFloat(String(v).replace(/,/g,"")); return (!isNaN(n) && /^[\d,.\s]+$/.test(String(v))) ? n : v; }
+
+document.querySelectorAll(".pcg-tab").forEach(el=> el.addEventListener("click", ()=> showTab(el.getAttribute("data-tab"))));
+$i("i_search").addEventListener("input", renderInfoTab);
+$i("i_select").addEventListener("change", ()=>{ const v = $i("i_select").value; if(v) selectInfoItem(v); else { infoSelId = null; renderInfoTab(); } });
+["i_dia","i_height","i_length","i_capval","i_capunit","i_weight","i_thick","i_material","i_color","i_qty"].forEach(id=>{
+  $i(id).addEventListener("input", renderInfoDerived);
+  $i(id).addEventListener("change", renderInfoDerived);
+});
+$i("i_spec").addEventListener("input", ()=>{ infoSpecLocked = true; });
+$i("i_spec_refresh").addEventListener("click", ()=>{ infoSpecLocked = false; renderInfoDerived(); });
+["i_cb_w","i_cb_d","i_cb_h"].forEach(id=> $i(id).addEventListener("input", ()=>{ infoCboxLocked = true; renderInfoDerived(); }));
+$i("i_cbox_refresh").addEventListener("click", ()=>{ infoCboxLocked = false; renderInfoDerived(); });
+["i_ct_w","i_ct_d","i_ct_h"].forEach(id=> $i(id).addEventListener("input", ()=>{ infoCartonLocked = true; renderInfoDerived(); }));
+$i("i_carton_refresh").addEventListener("click", ()=>{ infoCartonLocked = false; renderInfoDerived(); });
+$i("i_save").addEventListener("click", saveInfo);
+$i("i_export").addEventListener("click", ()=>{
+  exportRegistryToExcel();
+  $i("i_status").className = "pcg-err";
+  $i("i_status").textContent = $i("reg_export_status").textContent;
 });
 
 async function initApp(){
